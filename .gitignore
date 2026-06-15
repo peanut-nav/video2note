@@ -1,0 +1,28 @@
+# 工作临时目录
+notes/_work_*/
+
+# 中间文件
+*.wav
+*.mp3
+*.m4a
+*.webm
+*.opus
+
+# 笔记输出
+notes/*.md
+
+# Python
+__pycache__/
+*.pyc
+
+# 敏感文件（Cookie / 密钥）
+bilibili_cookies.txt
+*.cookies.txt
+*_cookies.txt
+
+# Claude Code 本地配置
+.claude/
+
+# 系统文件
+Thumbs.db
+.DS_Store

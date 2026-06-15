@@ -1,0 +1,16 @@
+{
+    "outputDir": ".\\notes",
+    "keepTempFiles": false,
+    "subLangPriority": ["zh-Hans", "zh-CN", "zh", "en", "en-US"],
+    "asr": {
+        "engine": "funasr",
+        "audioFormat": "wav",
+        "sampleRate": 16000,
+        "channels": 1
+    },
+    "llm": {
+        "engine": "claude",
+        "maxTokens": 4096
+    },
+    "notePrompt": "请根据以下视频字幕/音频转录内容，生成一份结构化的学习笔记。\n\n注意：以下内容来自自动语音识别（ASR），人名、品牌名、专有名词可能不准确，请根据上下文推断正确名称，不确定的标注「[音译，待核实]」。\n\n要求：\n1. 用 Markdown 格式，标题用视频原标题「{title}」\n2. 包含：## 核心主题、## 关键概念（每个概念展开解释）、## 重要细节、## 个人可行动项\n3. 如果内容涉及技术，保留代码片段或命令示例\n4. 用中文撰写，保持简洁有条理\n5. 在笔记末尾注明来源链接：{url}\n\n以下是视频内容：\n---\n{text}"
+}
