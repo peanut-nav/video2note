@@ -37,7 +37,9 @@ param(
 
     [switch]$NoCleanup,
 
-    [string]$Cookies
+    [string]$Cookies,
+
+    [string]$ProgressFile
 )
 
 $ErrorActionPreference = "Stop"
@@ -67,10 +69,41 @@ else {
 }
 
 # ── 颜色辅助 ──────────────────────────────────
-function Write-Step { Write-Host "`n▶ $args" -ForegroundColor Cyan }
-function Write-OK   { Write-Host "  ✅ $args" -ForegroundColor Green }
-function Write-Warn { Write-Host "  ⚠️  $args" -ForegroundColor Yellow }
-function Write-Err  { Write-Host "  ❌ $args" -ForegroundColor Red }
+function Write-Step { $msg = "$args"; Write-Host "`n▶ $msg" -ForegroundColor Cyan;      Write-ProgressLog -Level "step" -Message $msg }
+function Write-OK   { $msg = "$args"; Write-Host "  ✅ $msg" -ForegroundColor Green;      Write-ProgressLog -Level "ok"   -Message $msg }
+function Write-Warn { $msg = "$args"; Write-Host "  ⚠️  $msg" -ForegroundColor Yellow;    Write-ProgressLog -Level "warn" -Message $msg }
+function Write-Err  { $msg = "$args"; Write-Host "  ❌ $msg" -ForegroundColor Red;        Write-ProgressLog -Level "err"  -Message $msg }
+
+# 进度日志写入（供 GUI 读取）
+function Write-ProgressLog {
+    param([string]$Level, [string]$Message, [string]$Path)
+    if (-not $script:ProgressFile) { return }
+
+    $entry = [PSCustomObject]@{
+        timestamp = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
+        level     = $Level
+        message   = $Message
+    }
+    if ($Path) {
+        $entry | Add-Member -MemberType NoteProperty -Name "path" -Value $Path
+    }
+    $json = $entry | ConvertTo-Json -Compress
+
+    # 重试写入（GUI 轮询可能同时在读，导致文件被锁定）
+    $maxRetries = 10
+    for ($i = 0; $i -lt $maxRetries; $i++) {
+        try {
+            Add-Content -Path $script:ProgressFile -Value $json -Encoding UTF8 -ErrorAction Stop
+            break
+        } catch {
+            if ($i -eq $maxRetries - 1) {
+                Write-Host "  ⚠️ 进度文件写入失败（已重试${maxRetries}次）" -ForegroundColor DarkYellow
+            } else {
+                Start-Sleep -Milliseconds 50
+            }
+        }
+    }
+}
 
 # ── 加载配置 ──────────────────────────────────
 $configPath = Join-Path $scriptDir "config.json"
@@ -110,10 +143,12 @@ function Cleanup {
 }
 
 # ═══════════════════════════════════════════════
-# 第1步：获取视频信息
+# 第1步：获取视频信息 + 下载字幕（合并为一次 yt-dlp 调用）
 # ═══════════════════════════════════════════════
+$subtitleText = $null
+
 try {
-    Write-Step "获取视频信息..."
+    Write-Step "获取视频信息并下载字幕..."
 
     $ytDlpBase = @(
         "--no-playlist"
@@ -125,9 +160,8 @@ try {
         "--remote-components", "ejs:github"
     )
 
-    # 如果指定了 Cookies 浏览器，添加 cookie 选项
+    # 如果指定了 Cookies，添加 cookie 选项
     if ($Cookies) {
-        # 判断是浏览器名还是文件路径
         if (Test-Path $Cookies -ErrorAction SilentlyContinue) {
             $ytDlpBase += @("--cookies", $Cookies)
         }
@@ -136,12 +170,33 @@ try {
         }
     }
 
-    # 获取标题
-    $title = & $ytDlpBin @ytDlpBase "--print" "%(title)s" "--no-download" $Url 2>&1 | Where-Object {
-        $_ -is [string] -and $_ -notmatch '^WARNING:' -and $_.Trim() -ne ''
-    } | Select-Object -Last 1
+    # 字幕下载参数
+    $subLangs = ($config.subLangPriority -join ",")
+    $subOutput = Join-Path $workDir "video"
 
-    if (-not $title) {
+    # 合并：一次 yt-dlp 同时获取标题（--print）+ 下载字幕（--write-subs）
+    # 用 __TITLE__ 前缀标记标题行，避免与下载进度输出混淆
+    $savedEAP = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    $rawOutput = & $ytDlpBin @ytDlpBase `
+        "--print", "__TITLE__:%(title)s" `
+        "--write-subs" `
+        "--write-auto-subs" `
+        "--sub-langs", $subLangs `
+        "--skip-download" `
+        "-o", $subOutput `
+        $Url 2>&1
+    $ErrorActionPreference = $savedEAP
+
+    # 从输出中提取标题（标记行）
+    $titleLine = $rawOutput | Where-Object { $_ -match '^__TITLE__:' } | Select-Object -Last 1
+    if ($titleLine) {
+        $title = $titleLine -replace '^__TITLE__:', ''
+    } else {
+        $title = $null
+    }
+
+    if (-not $title -or $title.Trim() -eq '') {
         Write-Err "无法获取视频信息，请检查链接是否有效"
         Write-Warn "B站 遇到限制? 尝试: .\video2note.ps1 -Url '...' -Cookies chrome"
         Write-Warn "YouTube 遇到限制? 尝试安装 deno: winget install deno"
@@ -155,40 +210,10 @@ try {
     $safeTitle = $title -replace '[\\/:*?"<>|]', '_' -replace '\s+', ' ' -replace '\.\.+', '.'
     if ($safeTitle.Length -gt 120) { $safeTitle = $safeTitle.Substring(0, 120) }
 
-}
-catch {
-    Write-Err "获取视频信息失败: $_"
-    Cleanup
-    exit 1
-}
-
-# ═══════════════════════════════════════════════
-# 第2步：尝试下载字幕
-# ═══════════════════════════════════════════════
-$subtitleText = $null
-
-try {
-    Write-Step "尝试下载字幕..."
-
-    $subLangs = ($config.subLangPriority -join ",")
-    $subOutput = Join-Path $workDir "video"
-
-    & $ytDlpBin @ytDlpBase `
-        "--write-subs" `
-        "--write-auto-subs" `
-        "--sub-langs", $subLangs `
-        "--skip-download" `
-        `
-        "-o", $subOutput `
-        $Url 2>&1 | Out-Null
-
-    # 查找字幕文件
-    # 搜索字幕文件 (YouTube 通常为 .vtt，B站为 .srt)
+    # ── 查找已下载的字幕文件 ──────────────────────────
     $srtFiles = Get-ChildItem -Path $workDir -Include "*.srt", "*.vtt" -ErrorAction SilentlyContinue |
-        Sort-Object Length -Descending
-
-    # 排除只有少量内容的字幕（可能是占位文件）
-    $srtFiles = $srtFiles | Where-Object { $_.Length -gt 100 }
+        Sort-Object Length -Descending |
+        Where-Object { $_.Length -gt 100 }
 
     if ($srtFiles.Count -gt 0) {
         # 优先中文
@@ -207,7 +232,9 @@ try {
     }
 }
 catch {
-    Write-Warn "字幕下载异常 ($_)，将使用语音转文字"
+    Write-Err "获取视频信息失败: $_"
+    Cleanup
+    exit 1
 }
 
 # ═══════════════════════════════════════════════
@@ -221,12 +248,15 @@ if (-not $subtitleText) {
         $audioExtPattern = "$audioOutput.*"
 
         # 下载最佳音频
+        $savedEAP = $ErrorActionPreference
+        $ErrorActionPreference = "Continue"
         & $ytDlpBin @ytDlpBase `
             "-x" `
             "--audio-format", "mp3" `
             "--audio-quality", "0" `
             "-o", $audioOutput `
             $Url 2>&1 | Out-Null
+        $ErrorActionPreference = $savedEAP
 
         # 找到下载的音频文件（可能是 .mp3 / .m4a / .webm 等）
         $audioFile = Get-ChildItem -Path $workDir | Where-Object {
@@ -325,6 +355,7 @@ try {
     $promptFile = Join-Path $workDir "prompt.txt"
     [System.IO.File]::WriteAllText($promptFile, $prompt, [System.Text.UTF8Encoding]::new($false))
 
+    Write-ProgressLog -Level "info" -Message "发送 $($textForPrompt.Length) 字符到 Claude..."
     Write-Host "  发送 $($textForPrompt.Length) 字符到 Claude..." -ForegroundColor Gray
 
     # 将 prompt 写入 UTF-8 文件，通过 cmd /c 管道传入。
@@ -383,6 +414,7 @@ catch {
 # ═══════════════════════════════════════════════
 # 清理并输出结果
 # ═══════════════════════════════════════════════
+Write-ProgressLog -Level "done" -Message "笔记已生成" -Path $notePath
 Cleanup
 
 Write-Host "`n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Green

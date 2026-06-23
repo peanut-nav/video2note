@@ -23,6 +23,9 @@ bilibili_cookies.txt
 # Claude Code 本地配置
 .claude/
 
+# GUI 用户设置（自动保存上次输入，含个人信息）
+gui_settings.json
+
 # 系统文件
 Thumbs.db
 .DS_Store
