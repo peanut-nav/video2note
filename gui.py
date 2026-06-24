@@ -1,11 +1,11 @@
 """
-视频/音频到笔记 — 图形界面
+媒体到笔记 — 图形界面
 用法: python gui.py
 
 tkinter GUI，零额外依赖。支持三种输入模式：
-  1. 视频链接 → 笔记（包装 video2note.ps1 -Url）
-  2. 音频文件 → 笔记（包装 video2note.ps1 -AudioFile）
-  3. 视频文件 → 笔记（包装 video2note.ps1 -VideoFile）
+  1. 视频链接 → 笔记（包装 media2note.ps1 -Url）
+  2. 音频文件 → 笔记（包装 media2note.ps1 -AudioFile）
+  3. 视频文件 → 笔记（包装 media2note.ps1 -VideoFile）
 """
 
 import tkinter as tk
@@ -29,10 +29,10 @@ VIDEO_FILETYPES = [
 ]
 
 
-class Video2NoteGUI:
+class Media2NoteGUI:
     def __init__(self):
         self.root = tk.Tk()
-        self.root.title("视频/音频到笔记")
+        self.root.title("媒体到笔记")
         self.root.geometry("800x620")
         self.root.minsize(700, 520)
 
@@ -374,7 +374,7 @@ class Video2NoteGUI:
 
         # 脚本路径
         script_dir = os.path.dirname(os.path.abspath(__file__))
-        ps1_path = os.path.join(script_dir, "video2note.ps1")
+        ps1_path = os.path.join(script_dir, "media2note.ps1")
 
         # 根据模式构建命令
         if mode == "url":
@@ -455,7 +455,7 @@ class Video2NoteGUI:
 
         # 创建临时进度文件
         fd, self.progress_file = tempfile.mkstemp(
-            suffix=".jsonl", prefix="video2note_progress_"
+            suffix=".jsonl", prefix="media2note_progress_"
         )
         os.close(fd)
         self.progress_offset = 0
@@ -466,7 +466,7 @@ class Video2NoteGUI:
 
         # 创建临时文件捕获脚本输出（出错时用于诊断）
         fd_err, self.error_log_path = tempfile.mkstemp(
-            suffix=".txt", prefix="video2note_error_"
+            suffix=".txt", prefix="media2note_error_"
         )
         os.close(fd_err)
 
@@ -703,5 +703,5 @@ class Video2NoteGUI:
 
 
 if __name__ == "__main__":
-    app = Video2NoteGUI()
+    app = Media2NoteGUI()
     app.run()

@@ -32,15 +32,15 @@
 
 .EXAMPLE
   # YouTube
-  .\video2note.ps1 "https://www.youtube.com/watch?v=xxxxx"
+  .\media2note.ps1 "https://www.youtube.com/watch?v=xxxxx"
 
 .EXAMPLE
   # 音频文件
-  .\video2note.ps1 -AudioFile ".\recording.mp3"
+  .\media2note.ps1 -AudioFile ".\recording.mp3"
 
 .EXAMPLE
   # 视频文件
-  .\video2note.ps1 -VideoFile ".\lecture.mp4" -Title "我的课程笔记"
+  .\media2note.ps1 -VideoFile ".\lecture.mp4" -Title "我的课程笔记"
 #>
 
 [CmdletBinding(DefaultParameterSetName="Url")]
@@ -401,7 +401,7 @@ switch ($mode) {
 
             if (-not $title -or $title.Trim() -eq '') {
                 Write-Err "无法获取视频信息，请检查链接是否有效"
-                Write-Warn "B站 遇到限制? 尝试: .\video2note.ps1 -Url '...' -Cookies chrome"
+                Write-Warn "B站 遇到限制? 尝试: .\media2note.ps1 -Url '...' -Cookies chrome"
                 Write-Warn "YouTube 遇到限制? 尝试安装 deno: winget install deno"
                 Cleanup
                 exit 1

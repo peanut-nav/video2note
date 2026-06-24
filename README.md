@@ -1,4 +1,4 @@
-# 视频/音频到笔记 🎬🎤→📝
+# 媒体到笔记 🎬🎤→📝
 
 > 三种输入方式 → 一键生成结构化 Markdown 笔记，全链路自动化。
 > 视频链接 / 音频文件 / 视频文件，字幕 + 语音转文字双链路覆盖。
@@ -25,7 +25,7 @@ python gui.py
 输入一个链接/文件，得到两份笔记（精炼版 + 详细版）：
 
 ```
-▶ .\video2note.ps1 -AudioFile ".\lecture.mp3"
+▶ .\media2note.ps1 -AudioFile ".\lecture.mp3"
 
 ▶ 标题: lecture
 ▶ 音频格式转换 (16kHz mono WAV)...
@@ -106,14 +106,14 @@ winget install deno
 python gui.py
 
 # CLI — URL 模式
-.\video2note.ps1 "https://www.youtube.com/watch?v=xxxxx"
-.\video2note.ps1 "https://www.bilibili.com/video/BVxxxxx" -Cookies ".\bilibili_cookies.txt"
+.\media2note.ps1 "https://www.youtube.com/watch?v=xxxxx"
+.\media2note.ps1 "https://www.bilibili.com/video/BVxxxxx" -Cookies ".\bilibili_cookies.txt"
 
 # CLI — 音频文件模式
-.\video2note.ps1 -AudioFile ".\recording.mp3"
+.\media2note.ps1 -AudioFile ".\recording.mp3"
 
 # CLI — 视频文件模式（可自定义标题）
-.\video2note.ps1 -VideoFile ".\lecture.mp4" -Title "深度学习笔记"
+.\media2note.ps1 -VideoFile ".\lecture.mp4" -Title "深度学习笔记"
 ```
 
 #### 命令行参数
@@ -186,8 +186,8 @@ yt-dlp 理论上支持 1800+ 站点，更多见 [yt-dlp 支持列表](https://gi
 ## 项目结构
 
 ```
-视频到笔记/
-├── video2note.ps1          # 主脚本：三种输入模式，编排全流程
+媒体到笔记/
+├── media2note.ps1          # 主脚本：三种输入模式，编排全流程
 ├── gui.py                  # tkinter 图形界面
 ├── gui_settings.json       # GUI 用户设置（自动保存，gitignore）
 ├── asr.py                  # FunASR 语音转文字模块（自动分段）

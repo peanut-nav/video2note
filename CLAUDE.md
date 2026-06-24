@@ -40,19 +40,19 @@ python gui.py
 
 ```powershell
 # YouTube
-.\video2note.ps1 "https://www.youtube.com/watch?v=xxxxx"
+.\media2note.ps1 "https://www.youtube.com/watch?v=xxxxx"
 
 # Bilibili (requires cookies.txt — see 使用教程.md)
-.\video2note.ps1 "https://www.bilibili.com/video/BVxxxxx" -Cookies ".\bilibili_cookies.txt"
+.\media2note.ps1 "https://www.bilibili.com/video/BVxxxxx" -Cookies ".\bilibili_cookies.txt"
 
 # Audio file (title auto-derived from filename)
-.\video2note.ps1 -AudioFile ".\recording.mp3"
+.\media2note.ps1 -AudioFile ".\recording.mp3"
 
 # Video file (with custom title)
-.\video2note.ps1 -VideoFile ".\lecture.mp4" -Title "深度学习讲座笔记"
+.\media2note.ps1 -VideoFile ".\lecture.mp4" -Title "深度学习讲座笔记"
 
 # Keep intermediate files for debugging
-.\video2note.ps1 "https://..." -NoCleanup
+.\media2note.ps1 "https://..." -NoCleanup
 
 # Standalone ASR (requires 16kHz mono WAV)
 python asr.py audio_16k.wav
@@ -72,7 +72,7 @@ Get-Command deno -ErrorAction SilentlyContinue          # Deno (YouTube JS chall
 
 | File | Role |
 |------|------|
-| `video2note.ps1` | Main orchestrator — PowerShell parameter sets (`-Url` / `-AudioFile` / `-VideoFile`), PATH refresh, yt-dlp download (URL mode only), subtitle parsing, ffmpeg WAV conversion, ASR call, Claude invocation, output. Shared functions: `Convert-ToWav`, `Invoke-AsrTranscribe`, `Invoke-ClaudeNote` |
+| `media2note.ps1` | Main orchestrator — PowerShell parameter sets (`-Url` / `-AudioFile` / `-VideoFile`), PATH refresh, yt-dlp download (URL mode only), subtitle parsing, ffmpeg WAV conversion, ASR call, Claude invocation, output. Shared functions: `Convert-ToWav`, `Invoke-AsrTranscribe`, `Invoke-ClaudeNote` |
 | `gui.py` | tkinter GUI — three-mode radio selector, file picker, progress polling from JSONL, subprocess lifecycle management. Settings persisted to `gui_settings.json` |
 | `gui_settings.json` | Auto-saved GUI state (last mode, URL, cookies, file paths, title, output dir) |
 | `asr.py` | FunASR speech-to-text module — loads paraformer-zh model, auto-chunks audio >3.5min into 3min segments to avoid O(n²) attention memory blowup |
@@ -81,7 +81,7 @@ Get-Command deno -ErrorAction SilentlyContinue          # Deno (YouTube JS chall
 
 ## Critical encoding rules (PowerShell 5.1 on Chinese Windows)
 
-1. **`video2note.ps1` MUST be UTF-8 with BOM.** Without BOM, PowerShell 5.1 reads the file as GBK, corrupting comment/string bytes containing `MB`/`KB` substrings, causing parse errors. Always write with `[System.Text.UTF8Encoding]::new($true)`.
+1. **`media2note.ps1` MUST be UTF-8 with BOM.** Without BOM, PowerShell 5.1 reads the file as GBK, corrupting comment/string bytes containing `MB`/`KB` substrings, causing parse errors. Always write with `[System.Text.UTF8Encoding]::new($true)`.
 
 2. **`[Console]::OutputEncoding` must be set to UTF-8 before capturing Claude stdout.** PowerShell defaults to system ANSI code page (GBK/cp936), which garbles the UTF-8 bytes from `claude --print`. Save and restore in a `try/finally` block.
 
@@ -95,13 +95,13 @@ Get-Command deno -ErrorAction SilentlyContinue          # Deno (YouTube JS chall
 - Audio > 3.5 min: ffmpeg splits into 3-min chunks → each chunk transcribed independently → results joined with spaces
 - Rationale: paraformer-zh self-attention is O(n²) memory; a 15-min 16kHz audio (~14M samples) needs ~3.7GB attention matrix, causing OOM
 
-## `video2note.ps1` PATH handling
+## `media2note.ps1` PATH handling
 
 The script refreshes `$env:PATH` from registry (Machine + User) and scans winget package directories at startup. This avoids "command not found" errors when winget-installed tools (deno, ffmpeg) haven't been added to the terminal session PATH yet. yt-dlp is invoked as `python -m yt_dlp` to avoid the same problem with pip-installed scripts.
 
 ## Parameter set architecture
 
-`video2note.ps1` uses `[CmdletBinding(DefaultParameterSetName="Url")]` with three parameter sets:
+`media2note.ps1` uses `[CmdletBinding(DefaultParameterSetName="Url")]` with three parameter sets:
 
 | Parameter Set | Mandatory Params | Optional | Used By |
 |---|---|---|---|
