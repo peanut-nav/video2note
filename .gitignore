@@ -1,15 +1,28 @@
 # 工作临时目录
 notes/_work_*/
 
-# 中间文件
+# 中间文件（音频）
 *.wav
 *.mp3
 *.m4a
-*.webm
+*.flac
+*.ogg
 *.opus
+*.aac
+*.wma
 
-# 笔记输出
+# 测试视频文件
+*.mp4
+*.mkv
+*.webm
+*.avi
+*.mov
+*.flv
+*.wmv
+
+# 笔记输出（保留目录结构）
 notes/*.md
+!notes/.gitkeep
 
 # Python
 __pycache__/

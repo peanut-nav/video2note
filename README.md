@@ -1,7 +1,8 @@
-# 视频到笔记 🎬→📝
+# 视频/音频到笔记 🎬🎤→📝
 
-> 复制视频链接 → 一键生成结构化 Markdown 笔记，全链路自动化。
-> 不依赖任何付费 API，字幕 + 语音转文字双链路覆盖。
+> 三种输入方式 → 一键生成结构化 Markdown 笔记，全链路自动化。
+> 视频链接 / 音频文件 / 视频文件，字幕 + 语音转文字双链路覆盖。
+> 自带 tkinter 图形界面，也支持命令行调用。
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 ![Platform: Windows](https://img.shields.io/badge/Platform-Windows%2010%2F11-blue)
@@ -11,47 +12,63 @@
 
 ## 效果
 
-输入一个视频链接，得到一个结构化笔记：
+### GUI（推荐）
+
+```powershell
+python gui.py
+```
+
+三种输入模式一键切换：**视频链接** / **音频文件** / **视频文件**，实时显示处理进度，设置自动记忆。
+
+### CLI
+
+输入一个链接/文件，得到两份笔记（精炼版 + 详细版）：
 
 ```
-▶ .\video2note.ps1 "https://www.youtube.com/watch?v=xxxxx"
+▶ .\video2note.ps1 -AudioFile ".\lecture.mp3"
 
-▶ 获取视频信息...
-  ✅ 视频: AI编程越写越乱？我用水桶装水，把边界讲透
+▶ 标题: lecture
+▶ 音频格式转换 (16kHz mono WAV)...
+  ✅ WAV: 54.6 MB
 
-▶ 尝试下载字幕...
-  ✅ 找到字幕: video.zh-Hans.vtt (42.5 KB)
-  ✅ 字幕提取完成 (10234 字符)
+▶ FunASR 语音转文字...
+  ✅ 转写完成 (18519 字符)
 
-▶ Claude Code 生成笔记...
-  ✅ 笔记生成完成 (3587 字符)
+▶ Claude Code 生成笔记 (精炼版)...
+  ✅ 笔记生成完成 — 2947 字符
+
+▶ Claude Code 生成笔记 (详细版)...
+  ✅ 笔记生成完成 — 17659 字符
 
   ✅ 完成！
-  📝 笔记: notes\AI编程越写越乱？我用水桶装水，把边界讲透.md
+  📝 精炼版: notes\lecture.md
+  📚 详细版: notes\lecture_详细.md
 ```
 
-生成的笔记包含：**核心主题 → 关键概念 → 重要细节 → 个人可行动项**，可直接用于复习、分享。
+精炼版笔记包含：**核心主题 → 关键概念 → 重要细节 → 个人可行动项**。详细版额外包含 **完整内容记录**（逐段复述）、**问答记录**等。
 
 ---
 
 ## 工作原理
 
 ```
-输入链接
-  │
-  ├─ yt-dlp 下载字幕 (.srt / .vtt)
-  │   └─ 有字幕 → 解析纯文本 ✅（秒级）
-  │
-  └─ 无字幕 → 下载音频 → ffmpeg 转 16kHz WAV
-                └─ FunASR paraformer-zh 语音转文字
-                   ├─ 短音频: 一次性处理
-                   └─ 长音频: 3分钟×N 分段处理（避免内存溢出）
-                       │
-                       ▼
-               Claude Code 生成结构化笔记
-                       │
-                       ▼
-                  notes/标题.md
+┌─ URL 模式 ───── 视频链接 → yt-dlp 下载字幕
+│                              ├─ 有字幕 → 解析纯文本 ✅
+│                              └─ 无字幕 → 下载音频 → ffmpeg → WAV
+│
+├─ AudioFile 模式  音频文件 → ffmpeg → 16kHz mono WAV
+│
+└─ VideoFile 模式  视频文件 → ffmpeg -vn → 16kHz mono WAV
+                                                   │
+                                          FunASR 语音转文字
+                                          (长音频自动分段)
+                                                   │
+                                    ┌──────────────┴──────────────┐
+                                    │                             │
+                              Claude Code                    Claude Code
+                              精炼版 prompt                  详细版 prompt
+                                    │                             │
+                              notes/标题.md              notes/标题_详细.md
 ```
 
 ---
@@ -85,23 +102,31 @@ winget install deno
 ### 使用
 
 ```powershell
-cd 视频到笔记
+# GUI（图形界面，支持三种模式）
+python gui.py
 
-# YouTube（直接跑）
+# CLI — URL 模式
 .\video2note.ps1 "https://www.youtube.com/watch?v=xxxxx"
-
-# B站（需要先导出 Cookie，见下方说明）
 .\video2note.ps1 "https://www.bilibili.com/video/BVxxxxx" -Cookies ".\bilibili_cookies.txt"
+
+# CLI — 音频文件模式
+.\video2note.ps1 -AudioFile ".\recording.mp3"
+
+# CLI — 视频文件模式（可自定义标题）
+.\video2note.ps1 -VideoFile ".\lecture.mp4" -Title "深度学习笔记"
 ```
 
 #### 命令行参数
 
-| 参数 | 必填 | 说明 |
-|------|------|------|
-| `-Url` | ✅ | 视频链接 |
-| `-Cookies` | ❌ | cookies.txt 文件路径，或浏览器名 (edge/chrome/firefox) |
-| `-OutputDir` | ❌ | 输出目录，默认 `./notes` |
-| `-NoCleanup` | ❌ | 保留中间文件（字幕/音频/prompt），方便调试 |
+| 参数 | 模式 | 必填 | 说明 |
+|------|------|------|------|
+| `-Url` | URL | ✅ | 视频链接 |
+| `-AudioFile` | 音频文件 | ✅ | 本地音频文件路径 |
+| `-VideoFile` | 视频文件 | ✅ | 本地视频文件路径 |
+| `-Title` | 文件模式 | ❌ | 自定义标题（默认从文件名推导） |
+| `-Cookies` | URL | ❌ | cookies.txt 路径，或浏览器名 |
+| `-OutputDir` | 全部 | ❌ | 输出目录，默认 `./notes` |
+| `-NoCleanup` | 全部 | ❌ | 保留中间文件，方便调试 |
 
 #### B站 需要导出 Cookie（一次操作，永久使用）
 
@@ -162,11 +187,15 @@ yt-dlp 理论上支持 1800+ 站点，更多见 [yt-dlp 支持列表](https://gi
 
 ```
 视频到笔记/
-├── video2note.ps1          # 主入口：编排全流程
+├── video2note.ps1          # 主脚本：三种输入模式，编排全流程
+├── gui.py                  # tkinter 图形界面
+├── gui_settings.json       # GUI 用户设置（自动保存，gitignore）
 ├── asr.py                  # FunASR 语音转文字模块（自动分段）
-├── config.json             # 配置文件（prompt 模板、语言优先级）
+├── config.json             # 配置文件（精炼+详细双 prompt 模板）
+├── 启动GUI.bat              # Windows 双击启动 GUI
 ├── bilibili_cookies.txt    # B站 Cookie（需手动导出，gitignore）
 ├── notes/                  # 笔记输出目录
+├── CLAUDE.md               # Claude Code 项目指引
 ├── 使用教程.md              # 详细使用文档
 └── 项目实现总结.md           # 技术决策 & 踩坑记录
 ```
